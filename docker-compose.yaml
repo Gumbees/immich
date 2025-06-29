@@ -15,6 +15,11 @@ services:
     user: "${PUID}:${PGID}"
     environment:
       - TZ=${TZ}
+      - DB_HOSTNAME=database
+      - DB_PORT=5432
+      - DB_USERNAME=${IMMICH_DB_USERNAME}
+      - DB_PASSWORD=${IMMICH_DB_PASSWORD}
+      - DB_DATABASE_NAME=${IMMICH_DB_DATABASE_NAME}
     volumes:
       - "immich_upload_volume:/usr/src/app/upload"
       - "/etc/localtime:/etc/localtime:ro"
