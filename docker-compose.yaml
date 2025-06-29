@@ -50,6 +50,7 @@ services:
       - "immich_cache_volume:/cache"
     networks:
       - immich_app
+      - container_internet
     restart: unless-stopped
     healthcheck:
       disable: false
