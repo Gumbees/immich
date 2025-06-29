@@ -1,0 +1,25 @@
+# Environment files
+*.env*
+!.env.example
+
+# Common temporary and system files
+.DS_Store
+Thumbs.db
+*.log
+*.tmp
+*~
+
+# Docker
+docker-compose.override.yml
+.dockerignore
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS generated files
+ehthumbs.db
+Desktop.ini 
