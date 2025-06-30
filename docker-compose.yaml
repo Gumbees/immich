@@ -28,6 +28,12 @@ services:
       immich_db:
       home_iot:
         ipv4_address: ${IMMICH_SERVER_IP}
+      container_internet:
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.immich.rule=Host(`pics.bierlysmith.com`)"
+      - "traefik.http.routers.immich.entrypoints=web"
+      - "traefik.http.services.immich.loadbalancer.server.port=3001"
     depends_on:
       - redis
       - database
