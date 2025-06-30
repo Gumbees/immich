@@ -31,8 +31,17 @@ services:
       container_internet:
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.immich.rule=Host(`pics.bierlysmith.com`)"
-      - "traefik.http.routers.immich.entrypoints=web"
+      # HTTP Router
+      - "traefik.http.routers.immich-http.rule=Host(`pics.bierlysmith.com`)"
+      - "traefik.http.routers.immich-http.entrypoints=web"
+      - "traefik.http.routers.immich-http.service=immich"
+      # HTTPS Router
+      - "traefik.http.routers.immich-https.rule=Host(`pics.bierlysmith.com`)"
+      - "traefik.http.routers.immich-https.entrypoints=websecure"
+      - "traefik.http.routers.immich-https.service=immich"
+      - "traefik.http.routers.immich-https.tls=true"
+      - "traefik.http.routers.immich-https.tls.certresolver=letsencrypt"
+      # Service Configuration
       - "traefik.http.services.immich.loadbalancer.server.port=2283"
     depends_on:
       - redis
