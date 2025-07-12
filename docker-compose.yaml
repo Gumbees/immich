@@ -13,6 +13,15 @@ services:
     container_name: "${CONTAINER_NAME_PREFIX}_immich_server"
     image: "ghcr.io/immich-app/immich-server:${IMMICH_VERSION:-release}"
     user: "${PUID}:${PGID}"
+    group_add:
+      - video
+      - render
+    security_opt:
+      - systempaths=unconfined
+      - apparmor=unconfined
+    cap_add:
+      - SYS_ADMIN
+      - SYS_RESOURCE
     environment:
       - TZ=${TZ}
       - DB_HOSTNAME=database
@@ -20,6 +29,12 @@ services:
       - DB_USERNAME=${IMMICH_DB_USERNAME}
       - DB_PASSWORD=${IMMICH_DB_PASSWORD}
       - DB_DATABASE_NAME=${IMMICH_DB_DATABASE_NAME}
+    devices:
+      # Orange Pi 5 (RK3588) hardware acceleration devices
+      - /dev/dri:/dev/dri
+      - /dev/mpp_service:/dev/mpp_service
+      - /dev/rga:/dev/rga
+      - /dev/dma_heap:/dev/dma_heap
     volumes:
       - "immich_upload_volume:/usr/src/app/upload"
       - "/etc/localtime:/etc/localtime:ro"
@@ -64,13 +79,24 @@ services:
   immich-machine-learning:
     container_name: "${CONTAINER_NAME_PREFIX}_immich_ml"
     image: "ghcr.io/immich-app/immich-machine-learning:${IMMICH_VERSION:-release}"
+    user: "${PUID}:${PGID}"
+    group_add:
+      - video
+      - render
     environment:
       - TZ=${TZ}
     security_opt:
       - systempaths=unconfined
       - apparmor=unconfined
+    cap_add:
+      - SYS_ADMIN
+      - SYS_RESOURCE
     devices:
-      - ${IMMICH_DEVICE_DRI:-/dev/dri:/dev/dri}
+      # Orange Pi 5 (RK3588) hardware acceleration devices for ML
+      - /dev/dri:/dev/dri
+      - /dev/mpp_service:/dev/mpp_service
+      - /dev/rga:/dev/rga
+      - /dev/dma_heap:/dev/dma_heap
     volumes:
       - "immich_cache_volume:/cache"
     networks:
