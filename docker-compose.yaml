@@ -31,16 +31,26 @@ services:
       container_internet:
     labels:
       - "traefik.enable=true"
-      # HTTP Router
-      - "traefik.http.routers.immich-http.rule=Host(`pics.bierlysmith.com`)"
-      - "traefik.http.routers.immich-http.entrypoints=web"
-      - "traefik.http.routers.immich-http.service=immich"
-      # HTTPS Router
-      - "traefik.http.routers.immich-https.rule=Host(`pics.bierlysmith.com`)"
-      - "traefik.http.routers.immich-https.entrypoints=websecure"
-      - "traefik.http.routers.immich-https.service=immich"
-      - "traefik.http.routers.immich-https.tls=true"
-      - "traefik.http.routers.immich-https.tls.certresolver=letsencrypt"
+      # Public Domain - HTTP Router
+      - "traefik.http.routers.immich-public-http.rule=Host(`${IMMICH_PUBLIC_DOMAIN}`)"
+      - "traefik.http.routers.immich-public-http.entrypoints=web"
+      - "traefik.http.routers.immich-public-http.service=immich"
+      # Public Domain - HTTPS Router
+      - "traefik.http.routers.immich-public-https.rule=Host(`${IMMICH_PUBLIC_DOMAIN}`)"
+      - "traefik.http.routers.immich-public-https.entrypoints=websecure"
+      - "traefik.http.routers.immich-public-https.service=immich"
+      - "traefik.http.routers.immich-public-https.tls=true"
+      - "traefik.http.routers.immich-public-https.tls.certresolver=${IMMICH_CERT_RESOLVER:-letsencrypt}"
+      # Private Domain - HTTP Router
+      - "traefik.http.routers.immich-private-http.rule=Host(`${IMMICH_PRIVATE_DOMAIN}`)"
+      - "traefik.http.routers.immich-private-http.entrypoints=web"
+      - "traefik.http.routers.immich-private-http.service=immich"
+      # Private Domain - HTTPS Router
+      - "traefik.http.routers.immich-private-https.rule=Host(`${IMMICH_PRIVATE_DOMAIN}`)"
+      - "traefik.http.routers.immich-private-https.entrypoints=websecure"
+      - "traefik.http.routers.immich-private-https.service=immich"
+      - "traefik.http.routers.immich-private-https.tls=true"
+      - "traefik.http.routers.immich-private-https.tls.certresolver=${IMMICH_CERT_RESOLVER:-letsencrypt}"
       # Service Configuration
       - "traefik.http.services.immich.loadbalancer.server.port=2283"
     depends_on:
