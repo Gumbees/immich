@@ -180,10 +180,10 @@ networks:
     internal: true
     driver: bridge
 
-  # External network for internet access
+  # External network for internet access (supports macvlan)
   container_internet:
     external: true
-    name: "containers_internet"
+    name: "${CONTAINERS_INTERNET_NETWORK:-containers_internet}"
 
   # Home IoT network (optional)
   home_iot:
