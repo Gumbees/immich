@@ -15,7 +15,6 @@ services:
     user: "${PUID}:${PGID}"
     group_add:
       - video
-      - render
     security_opt:
       - systempaths=unconfined
       - apparmor=unconfined
@@ -82,7 +81,6 @@ services:
     user: "${PUID}:${PGID}"
     group_add:
       - video
-      - render
     environment:
       - TZ=${TZ}
     security_opt:
