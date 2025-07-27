@@ -43,6 +43,7 @@ services:
       home_iot:
         ipv4_address: ${IMMICH_SERVER_IP}
       container_internet:
+      proxy:
     labels:
       - "traefik.enable=true"
       # Public Domain - HTTP Router
@@ -189,6 +190,11 @@ networks:
   home_iot:
     external: ${ENABLE_HOME_IOT_NETWORK:-false}
     name: "${HOME_IOT_NETWORK:-home_iot}"
+
+  # Proxy network for external ingress
+  proxy:
+    external: true
+    name: "proxy"
 
 volumes:
   # Upload volume for photos and videos
