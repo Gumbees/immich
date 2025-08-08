@@ -31,8 +31,8 @@ services:
     devices:
       # Orange Pi 5 (RK3588) hardware acceleration devices
       - /dev/dri:/dev/dri
-      - /dev/mpp_service:/dev/mpp_service
-      - /dev/rga:/dev/rga
+      #- /dev/mpp_service:/dev/mpp_service
+      #- /dev/rga:/dev/rga
       - /dev/dma_heap:/dev/dma_heap
     volumes:
       - "immich_upload_volume:/usr/src/app/upload"
