@@ -206,7 +206,8 @@ networks:
     driver: overlay
     internal: true
     attachable: false
-    encrypted: true
+    driver_opts:
+      encrypted: "true"
 
   # External Traefik proxy network for load balancer connectivity
   traefik_public:
