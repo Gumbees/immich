@@ -1,16 +1,20 @@
-# Immich Photo Management Stack
+# Immich Photo Management Stack - Docker Swarm Ready
 # Environment variables are loaded from .env file by default
 # See DEVELOPMENT.md for detailed documentation
 #
 # ARM64 COMPATIBILITY NOTES:
 # - All services support ARM64 architecture
 # - Using latest tags for better ARM64 support where applicable
+#
+# DOCKER SWARM NOTES:
+# - Deploy with: docker stack deploy -c docker-compose.yaml immich
+# - Requires external traefik_public network for proxy connectivity
+# - Uses overlay networks for internal service communication
 
 version: "3.8"
 
 services:
   immich-server:
-    container_name: "${CONTAINER_NAME_PREFIX}_immich_server"
     image: "ghcr.io/immich-app/immich-server:${IMMICH_VERSION:-release}"
     user: "${PUID}:${PGID}"
     group_add:
@@ -38,44 +42,58 @@ services:
       - "immich_upload_volume:/usr/src/app/upload"
       - "/etc/localtime:/etc/localtime:ro"
     networks:
-      immich_app:
-      immich_db:
-      container_internet:
-      proxy:
-    labels:
-      - "traefik.enable=true"
-      # Public Domain - HTTP Router
-      - "traefik.http.routers.immich-public-http.rule=Host(`${IMMICH_PUBLIC_DOMAIN}`)"
-      - "traefik.http.routers.immich-public-http.entrypoints=web"
-      - "traefik.http.routers.immich-public-http.service=immich"
-      # Public Domain - HTTPS Router
-      - "traefik.http.routers.immich-public-https.rule=Host(`${IMMICH_PUBLIC_DOMAIN}`)"
-      - "traefik.http.routers.immich-public-https.entrypoints=websecure"
-      - "traefik.http.routers.immich-public-https.service=immich"
-      - "traefik.http.routers.immich-public-https.tls=true"
-      - "traefik.http.routers.immich-public-https.tls.certresolver=${IMMICH_CERT_RESOLVER:-letsencrypt}"
-      # Private Domain - HTTP Router
-      - "traefik.http.routers.immich-private-http.rule=Host(`${IMMICH_PRIVATE_DOMAIN}`)"
-      - "traefik.http.routers.immich-private-http.entrypoints=web"
-      - "traefik.http.routers.immich-private-http.service=immich"
-      # Private Domain - HTTPS Router
-      - "traefik.http.routers.immich-private-https.rule=Host(`${IMMICH_PRIVATE_DOMAIN}`)"
-      - "traefik.http.routers.immich-private-https.entrypoints=websecure"
-      - "traefik.http.routers.immich-private-https.service=immich"
-      - "traefik.http.routers.immich-private-https.tls=true"
-      - "traefik.http.routers.immich-private-https.tls.certresolver=${IMMICH_CERT_RESOLVER:-letsencrypt}"
-      # Service Configuration
-      - "traefik.http.services.immich.loadbalancer.server.port=2283"
+      - immich_stack
+      - traefik_public
+
     depends_on:
       - redis
       - database
-    restart: unless-stopped
     healthcheck:
       disable: false
     privileged: ${ENABLE_IMMICH_PRIVILEGES:-false}
+    deploy:
+      replicas: 1
+      placement:
+        constraints:
+          - node.role == manager
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+        window: 120s
+      update_config:
+        parallelism: 1
+        delay: 10s
+        failure_action: rollback
+        monitor: 30s
+        order: stop-first
+      labels:
+        - "traefik.enable=true"
+        # Public Domain - HTTP Router
+        - "traefik.http.routers.immich-public-http.rule=Host(`${IMMICH_PUBLIC_DOMAIN}`)"
+        - "traefik.http.routers.immich-public-http.entrypoints=web"
+        - "traefik.http.routers.immich-public-http.service=immich"
+        # Public Domain - HTTPS Router
+        - "traefik.http.routers.immich-public-https.rule=Host(`${IMMICH_PUBLIC_DOMAIN}`)"
+        - "traefik.http.routers.immich-public-https.entrypoints=websecure"
+        - "traefik.http.routers.immich-public-https.service=immich"
+        - "traefik.http.routers.immich-public-https.tls=true"
+        - "traefik.http.routers.immich-public-https.tls.certresolver=${IMMICH_CERT_RESOLVER:-letsencrypt}"
+        # Private Domain - HTTP Router
+        - "traefik.http.routers.immich-private-http.rule=Host(`${IMMICH_PRIVATE_DOMAIN}`)"
+        - "traefik.http.routers.immich-private-http.entrypoints=web"
+        - "traefik.http.routers.immich-private-http.service=immich"
+        # Private Domain - HTTPS Router
+        - "traefik.http.routers.immich-private-https.rule=Host(`${IMMICH_PRIVATE_DOMAIN}`)"
+        - "traefik.http.routers.immich-private-https.entrypoints=websecure"
+        - "traefik.http.routers.immich-private-https.service=immich"
+        - "traefik.http.routers.immich-private-https.tls=true"
+        - "traefik.http.routers.immich-private-https.tls.certresolver=${IMMICH_CERT_RESOLVER:-letsencrypt}"
+        # Service Configuration
+        - "traefik.http.services.immich.loadbalancer.server.port=2283"
+        - "traefik.docker.network=traefik_public"
 
   immich-machine-learning:
-    container_name: "${CONTAINER_NAME_PREFIX}_immich_ml"
     image: "ghcr.io/immich-app/immich-machine-learning:${IMMICH_VERSION:-release}"
     user: "${PUID}:${PGID}"
     group_add:
@@ -97,28 +115,55 @@ services:
     volumes:
       - "immich_cache_volume:/cache"
     networks:
-      - immich_app
-      - container_internet
-    restart: unless-stopped
+      - immich_stack
     healthcheck:
       disable: false
+    deploy:
+      replicas: 1
+      placement:
+        constraints:
+          - node.role == worker
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+        window: 120s
+      update_config:
+        parallelism: 1
+        delay: 10s
+        failure_action: rollback
+        monitor: 30s
+        order: stop-first
 
   redis:
-    container_name: "${CONTAINER_NAME_PREFIX}_immich_redis"
     image: "redis:7-alpine"
     environment:
       - TZ=${TZ}
     networks:
-      - immich_db
+      - immich_stack
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 30s
       timeout: 10s
       retries: 3
-    restart: unless-stopped
+    deploy:
+      replicas: 1
+      placement:
+        constraints:
+          - node.role == worker
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+        window: 120s
+      update_config:
+        parallelism: 1
+        delay: 10s
+        failure_action: rollback
+        monitor: 30s
+        order: stop-first
 
   database:
-    container_name: "${CONTAINER_NAME_PREFIX}_immich_postgres"
     image: "tensorchord/pgvecto-rs:pg14-v0.2.0"
     environment:
       - TZ=${TZ}
@@ -127,7 +172,7 @@ services:
       - POSTGRES_DB=${IMMICH_DB_DATABASE_NAME}
       - POSTGRES_INITDB_ARGS=--data-checksums
     networks:
-      - immich_db
+      - immich_stack
     volumes:
       - "immich_db_volume:/var/lib/postgresql/data"
     healthcheck:
@@ -138,15 +183,29 @@ services:
       start_period: 5m
     command: >-
       postgres -c shared_preload_libraries=vectors.so -c 'search_path="$$user", public, vectors' -c logging_collector=on -c max_wal_size=2GB -c shared_buffers=512MB -c wal_compression=on
-    restart: unless-stopped
     logging:
       driver: json-file
       options:
         max-file: '5'
         max-size: 10m
+    deploy:
+      replicas: 1
+      placement:
+        constraints:
+          - node.role == manager
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+        window: 120s
+      update_config:
+        parallelism: 1
+        delay: 10s
+        failure_action: rollback
+        monitor: 30s
+        order: stop-first
 
   cloudflared:
-    container_name: "${CONTAINER_NAME_PREFIX}_immich_cloudflared"
     image: "cloudflare/cloudflared:latest"
     entrypoint: ["cloudflared", "--no-autoupdate"]
     command: ["tunnel", "run"]
@@ -154,45 +213,42 @@ services:
     environment:
       - TUNNEL_TOKEN=${IMMICH_CLOUDFLARE_TUNNEL_TOKEN}
     networks:
-      - immich_app
-      - container_internet
-    restart: unless-stopped
-    deploy:
-      replicas: ${ENABLE_IMMICH_CLOUDFLARED:-0}
+      - immich_stack
     healthcheck:
       test: ["CMD", "cloudflared", "tunnel", "status"]
       interval: 120s
       timeout: 30s
       retries: 5
       start_period: 60s
+    deploy:
+      replicas: ${ENABLE_IMMICH_CLOUDFLARED:-0}
+      placement:
+        constraints:
+          - node.role == worker
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+        window: 120s
+      update_config:
+        parallelism: 1
+        delay: 10s
+        failure_action: rollback
+        monitor: 30s
+        order: stop-first
 
 networks:
-  # Internal isolated network for inter-service communication
-  immich_app:
-    name: "${IMMICH_APP_NETWORK}"
+  # Internal stack overlay network for inter-service communication
+  immich_stack:
+    driver: overlay
     internal: true
-    driver: bridge
+    attachable: false
+    encrypted: true
 
-  # Database network for database communication
-  immich_db:
-    name: "${IMMICH_DB_NETWORK}"
-    internal: true
-    driver: bridge
-
-  # External network for internet access (supports macvlan)
-  container_internet:
+  # External Traefik proxy network for load balancer connectivity
+  traefik_public:
     external: true
-    name: "${CONTAINERS_INTERNET_NETWORK:-containers_internet}"
-
-  # Home IoT network (optional)
-  home_iot:
-    external: ${ENABLE_HOME_IOT_NETWORK:-false}
-    name: "${HOME_IOT_NETWORK:-home_iot}"
-
-  # Proxy network for external ingress
-  proxy:
-    external: true
-    name: "proxy"
+    name: "traefik_public"
 
 volumes:
   # Upload volume for photos and videos
