@@ -24,9 +24,15 @@ services:
       - DB_USERNAME=${IMMICH_DB_USERNAME}
       - DB_PASSWORD=${IMMICH_DB_PASSWORD}
       - DB_DATABASE_NAME=${IMMICH_DB_DATABASE_NAME}
+      # Ensure VAAPI selects AMD driver
+      - LIBVA_DRIVER_NAME=radeonsi
     volumes:
       - "immich_upload_volume:/usr/src/app/upload"
       - "/etc/localtime:/etc/localtime:ro"
+      # Bind host DRM devices for VAAPI (AMD GPU)
+      - type: bind
+        source: /dev/dri
+        target: /dev/dri
     networks:
       - immich_stack
       - traefik_public
@@ -35,7 +41,8 @@ services:
       replicas: 1
       placement:
         constraints:
-          - node.role == manager
+          - node.platform.arch == x86_64
+          - node.labels.amd_gpu == true
       restart_policy:
         condition: on-failure
         delay: 5s
@@ -78,15 +85,24 @@ services:
     user: "${PUID}:${PGID}"
     environment:
       - TZ=${TZ}
+      - LIBVA_DRIVER_NAME=radeonsi
     volumes:
       - "immich_cache_volume:/cache"
+      # Bind AMD GPU device nodes for ROCm/VAAPI as available
+      - type: bind
+        source: /dev/dri
+        target: /dev/dri
+      - type: bind
+        source: /dev/kfd
+        target: /dev/kfd
     networks:
       - immich_stack
     deploy:
       replicas: 1
       placement:
         constraints:
-          - node.role == worker
+          - node.platform.arch == x86_64
+          - node.labels.amd_gpu == true
       restart_policy:
         condition: on-failure
         delay: 5s
