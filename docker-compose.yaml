@@ -220,7 +220,6 @@ networks:
   # Internal stack overlay network for inter-service communication
   immich_stack:
     driver: overlay
-    internal: true
     attachable: false
     driver_opts:
       encrypted: "true"
