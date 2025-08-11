@@ -36,7 +36,9 @@ services:
     networks:
       - immich_stack
       - traefik_public
-
+    group_add:
+      - "44"   # <-- run `getent group video` on the host
+      - "109"  #
     deploy:
       replicas: 1
       placement:
