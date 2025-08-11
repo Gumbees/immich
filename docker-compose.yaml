@@ -185,17 +185,8 @@ services:
     user: "${PUID}:${PGID}"
     environment:
       - TUNNEL_TOKEN=${IMMICH_CLOUDFLARE_TUNNEL_TOKEN}
-    dns:
-      - 1.1.1.1
-      - 1.0.0.1
     networks:
       - immich_stack
-    healthcheck:
-      test: ["CMD", "cloudflared", "tunnel", "status"]
-      interval: 120s
-      timeout: 30s
-      retries: 5
-      start_period: 60s
     deploy:
       replicas: ${ENABLE_IMMICH_CLOUDFLARED:-0}
       restart_policy:
