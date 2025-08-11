@@ -33,6 +33,9 @@ services:
       - type: bind
         source: /dev/dri
         target: /dev/dri
+      - type: bind
+        source: /dev/dri/renderD128
+        target: /dev/dri/renderD129
     networks:
       - immich_stack
       - traefik_public
