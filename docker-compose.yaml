@@ -33,6 +33,7 @@ services:
       - type: bind
         source: /dev/dri
         target: /dev/dri
+    privileged: true
     networks:
       - immich_stack
       - traefik_public
@@ -94,6 +95,7 @@ services:
       - type: bind
         source: /dev/kfd
         target: /dev/kfd
+    privileged: true
     networks:
       - immich_stack
     deploy:
