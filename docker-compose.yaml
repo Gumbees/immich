@@ -16,7 +16,7 @@ version: "3.8"
 services:
   immich-server:
     image: "ghcr.io/immich-app/immich-server:${IMMICH_VERSION:-release}"
-    user: "${PUID}:${PGID}"
+    user: "${PUID}:${PGID}:44:109"
     environment:
       - TZ=${TZ}
       - DB_HOSTNAME=database
@@ -33,9 +33,6 @@ services:
       - type: bind
         source: /dev/dri
         target: /dev/dri
-    group_add:
-      - "${VIDEO_GID:-44}"
-      - "${RENDER_GID:-109}"
     networks:
       - immich_stack
       - traefik_public
@@ -84,7 +81,7 @@ services:
 
   immich-machine-learning:
     image: "ghcr.io/immich-app/immich-machine-learning:${IMMICH_VERSION:-release}"
-    user: "${PUID}:${PGID}"
+    user: "${PUID}:${PGID}:44:109"
     environment:
       - TZ=${TZ}
       - LIBVA_DRIVER_NAME=radeonsi
@@ -97,11 +94,6 @@ services:
       - type: bind
         source: /dev/kfd
         target: /dev/kfd
-    group_add:
-      - "${VIDEO_GID:-44}"
-      - "${RENDER_GID:-109}"
-      # Optionally for ROCm:
-      # - "${KFD_GID:-108}"
     networks:
       - immich_stack
     deploy:
@@ -189,7 +181,7 @@ services:
     image: "cloudflare/cloudflared:latest"
     entrypoint: ["cloudflared", "--no-autoupdate"]
     command: ["tunnel", "run"]
-    user: "${PUID}:${PGID}"
+    user: "${PUID}:${PGID}:44:109"
     environment:
       - TUNNEL_TOKEN=${IMMICH_CLOUDFLARE_TUNNEL_TOKEN}
     networks:
