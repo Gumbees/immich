@@ -74,7 +74,7 @@ services:
         - "traefik.http.routers.immich-private-https.tls.certresolver=${IMMICH_CERT_RESOLVER:-letsencrypt}"
         # Service Configuration
         - "traefik.http.services.immich.loadbalancer.server.port=2283"
-        - "traefik.docker.network=traefik_public"
+        - "traefik.swarm.network=traefik_public"
 
   immich-machine-learning:
     image: "ghcr.io/immich-app/immich-machine-learning:${IMMICH_VERSION:-release}"
