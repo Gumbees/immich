@@ -33,9 +33,9 @@ services:
       - type: bind
         source: /dev/dri
         target: /dev/dri
-      - type: bind
-        source: /dev/dri/renderD128
-        target: /dev/dri/renderD129
+    group_add:
+      - "${VIDEO_GID:-44}"
+      - "${RENDER_GID:-109}"
     networks:
       - immich_stack
       - traefik_public
@@ -97,6 +97,11 @@ services:
       - type: bind
         source: /dev/kfd
         target: /dev/kfd
+    group_add:
+      - "${VIDEO_GID:-44}"
+      - "${RENDER_GID:-109}"
+      # Optionally for ROCm:
+      # - "${KFD_GID:-108}"
     networks:
       - immich_stack
     deploy:
