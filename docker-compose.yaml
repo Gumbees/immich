@@ -29,10 +29,9 @@ services:
     volumes:
       - "immich_upload_volume:/usr/src/app/upload"
       - "/etc/localtime:/etc/localtime:ro"
-      # Bind host DRM devices for VAAPI (AMD GPU)
-      - type: bind
-        source: /dev/dri
-        target: /dev/dri
+    devices:
+      # AMD GPU devices for VAAPI
+      - "/dev/dri:/dev/dri"
     privileged: true
     networks:
       - immich_stack
@@ -88,13 +87,10 @@ services:
       - LIBVA_DRIVER_NAME=radeonsi
     volumes:
       - "immich_cache_volume:/cache"
-      # Bind AMD GPU device nodes for ROCm/VAAPI as available
-      - type: bind
-        source: /dev/dri
-        target: /dev/dri
-      - type: bind
-        source: /dev/kfd
-        target: /dev/kfd
+    devices:
+      # AMD GPU device nodes for ROCm/VAAPI
+      - "/dev/dri:/dev/dri"
+      - "/dev/kfd:/dev/kfd"
     privileged: true
     networks:
       - immich_stack
