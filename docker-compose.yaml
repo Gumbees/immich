@@ -129,8 +129,7 @@ services:
     deploy:
       replicas: 1
       placement:
-        constraints:
-          - node.role == worker
+        
       restart_policy:
         condition: on-failure
         delay: 5s
@@ -170,8 +169,7 @@ services:
     deploy:
       replicas: 1
       placement:
-        constraints:
-          - node.role == manager
+        
       restart_policy:
         condition: on-failure
         delay: 5s
@@ -205,8 +203,6 @@ services:
     deploy:
       replicas: ${ENABLE_IMMICH_CLOUDFLARED:-0}
       placement:
-        constraints:
-          - node.role == worker
       restart_policy:
         condition: on-failure
         delay: 5s
