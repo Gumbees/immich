@@ -153,9 +153,8 @@ services:
 networks:
   # Internal network for inter-service communication
   immich_stack:
-    driver: overlay
-    name: pics_stack
-    external: true
+    driver: bridge
+    name: immich_stack
 
   # External Traefik proxy network for load balancer connectivity
   traefik_public:
