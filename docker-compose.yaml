@@ -163,34 +163,36 @@ networks:
 volumes:
   # Upload volume for photos and videos
   immich_upload_volume:
-    name: "immich_immich_upload"
-    external: true
+    name: "${CONTAINER_NAME_PREFIX}_immich_upload"
+    driver: local
+    driver_opts:
+      type: ${IMMICH_UPLOAD_VOLUME_TYPE:-}
+      o: ${IMMICH_UPLOAD_VOLUME_OPTIONS:-}
+      device: ${IMMICH_UPLOAD_BASE:-}
 
   # Cache volume for machine learning models
   immich_cache_volume:
-    name: "immich_immich_cache"
-    external: true
-    #driver_opts:
-     # type: ${IMMICH_CACHE_VOLUME_TYPE:-none}
-      #o: ${IMMICH_CACHE_VOLUME_OPTIONS:-bind}
-      #device: ${IMMICH_CACHE_BASE:-./immich_data/cache}
+    name: "${CONTAINER_NAME_PREFIX}_immich_cache"
+    driver: local
+    driver_opts:
+      type: ${IMMICH_CACHE_VOLUME_TYPE:-}
+      o: ${IMMICH_CACHE_VOLUME_OPTIONS:-}
+      device: ${IMMICH_CACHE_BASE:-}
 
   # Database volume for PostgreSQL data
   immich_db_volume:
-    name: "immich_immich_db"
-    external: true
-#driver: local
-    #driver_opts:
-     # type: ${IMMICH_DB_VOLUME_TYPE:-none}
-      #o: ${IMMICH_DB_VOLUME_OPTIONS:-bind}
-      #device: ${IMMICH_DB_BASE:-./immich_data/database}
+    name: "${CONTAINER_NAME_PREFIX}_immich_db"
+    driver: local
+    driver_opts:
+      type: ${IMMICH_DB_VOLUME_TYPE:-}
+      o: ${IMMICH_DB_VOLUME_OPTIONS:-}
+      device: ${IMMICH_DB_BASE:-}
 
   # Redis volume for cache persistence
   immich_redis_volume:
-    name: "immich_redis"
-    external: true
-    #driver: local
-    #driver_opts:
-      #type: none
-      #o: bind
-      #device: ${IMMICH_REDIS_BASE:-./immich_data/redis}
+    name: "${CONTAINER_NAME_PREFIX}_immich_redis"
+    driver: local
+    driver_opts:
+      type: ${IMMICH_REDIS_VOLUME_TYPE:-}
+      o: ${IMMICH_REDIS_VOLUME_OPTIONS:-}
+      device: ${IMMICH_REDIS_BASE:-}
