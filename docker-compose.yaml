@@ -1,236 +1,197 @@
-# Immich Photo Management Stack - Docker Swarm Ready
+# Immich Photo Management Stack - Docker Compose with GPU Support
 # Environment variables are loaded from .env file by default
 # See DEVELOPMENT.md for detailed documentation
 #
-# ARM64 COMPATIBILITY NOTES:
-# - All services support ARM64 architecture
-# - Using latest tags for better ARM64 support where applicable
+# GPU COMPATIBILITY NOTES:
+# - Configured for AMD GPU support with VAAPI and ROCm
+# - H.264/H.265 hardware acceleration enabled
+# - Machine learning GPU acceleration supported
 #
-# DOCKER SWARM NOTES:
-# - Deploy with: docker stack deploy -c docker-compose.yaml immich
-# - Requires external traefik_public network for proxy connectivity
-# - Uses overlay networks for internal service communication
+# Usage: docker-compose -f docker-compose-gpu.yaml up -d
 
 version: "3.8"
 
 services:
   immich-server:
     image: "ghcr.io/immich-app/immich-server:${IMMICH_VERSION:-release}"
-    user: "${PUID}:${PGID}:44:109"
-    environment:
-      - TZ=${TZ}
-      - DB_HOSTNAME=database
-      - DB_PORT=5432
-      - DB_USERNAME=${IMMICH_DB_USERNAME}
-      - DB_PASSWORD=${IMMICH_DB_PASSWORD}
-      - DB_DATABASE_NAME=${IMMICH_DB_DATABASE_NAME}
-      # Ensure VAAPI selects AMD driver
-      - LIBVA_DRIVER_NAME=radeonsi
-    volumes:
-      - "immich_upload_volume:/usr/src/app/upload"
-      - "/etc/localtime:/etc/localtime:ro"
-      # Bind host DRM devices for VAAPI (AMD GPU)
-      - type: bind
-        source: /dev/dri
-        target: /dev/dri
+    container_name: immich-server
+    user: "${PUID:-911}:${PGID:-911}"
     privileged: true
+    runtime: amd
+    security_opt:
+      - seccomp:unconfined
+      - label=disable
+      - apparmor=unconfined
+    cap_add:
+      - ALL
+    environment:
+      - TZ=${TZ:-America/New_York}
+      - DB_HOSTNAME=immich-database
+      - DB_PORT=5432
+      - DB_USERNAME=${IMMICH_DB_USERNAME:-immich}
+      - DB_PASSWORD=${IMMICH_DB_PASSWORD}
+      - DB_DATABASE_NAME=${IMMICH_DB_DATABASE_NAME:-immich}
+      # AMD GPU support for hardware acceleration
+      - LIBVA_DRIVER_NAME=radeonsi
+      - AMD_VISIBLE_DEVICES=all
+    volumes:
+      - immich_upload_volume:/usr/src/app/upload
+      - /etc/localtime:/etc/localtime:ro
+      # AMD GPU device access for VAAPI hardware acceleration
+      - /dev/dri:/dev/dri
     networks:
       - immich_stack
       - traefik_public
-    deploy:
-      replicas: 1
-      restart_policy:
-        condition: on-failure
-        delay: 5s
-        max_attempts: 3
-        window: 120s
-      update_config:
-        parallelism: 1
-        delay: 10s
-        failure_action: rollback
-        monitor: 30s
-        order: stop-first
-      labels:
-        - "traefik.enable=true"
-        # Public Domain - HTTP Router
-        - "traefik.http.routers.immich-public-http.rule=Host(`${IMMICH_PUBLIC_DOMAIN}`)"
-        - "traefik.http.routers.immich-public-http.entrypoints=web"
-        - "traefik.http.routers.immich-public-http.service=immich"
-        # Public Domain - HTTPS Router
-        - "traefik.http.routers.immich-public-https.rule=Host(`${IMMICH_PUBLIC_DOMAIN}`)"
-        - "traefik.http.routers.immich-public-https.entrypoints=websecure"
-        - "traefik.http.routers.immich-public-https.service=immich"
-        - "traefik.http.routers.immich-public-https.tls=true"
-        - "traefik.http.routers.immich-public-https.tls.certresolver=${IMMICH_CERT_RESOLVER:-letsencrypt}"
-        # Private Domain - HTTP Router
-        - "traefik.http.routers.immich-private-http.rule=Host(`${IMMICH_PRIVATE_DOMAIN}`)"
-        - "traefik.http.routers.immich-private-http.entrypoints=web"
-        - "traefik.http.routers.immich-private-http.service=immich"
-        # Private Domain - HTTPS Router
-        - "traefik.http.routers.immich-private-https.rule=Host(`${IMMICH_PRIVATE_DOMAIN}`)"
-        - "traefik.http.routers.immich-private-https.entrypoints=websecure"
-        - "traefik.http.routers.immich-private-https.service=immich"
-        - "traefik.http.routers.immich-private-https.tls=true"
-        - "traefik.http.routers.immich-private-https.tls.certresolver=${IMMICH_CERT_RESOLVER:-letsencrypt}"
-        # Service Configuration
-        - "traefik.http.services.immich.loadbalancer.server.port=2283"
-        - "traefik.swarm.network=traefik_public"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=traefik_public"
+      # Public domain routing
+      - "traefik.http.routers.immich-public.rule=Host(`${IMMICH_PUBLIC_DOMAIN}`)"
+      - "traefik.http.routers.immich-public.entrypoints=web,websecure"
+      - "traefik.http.routers.immich-public.tls=true"
+      - "traefik.http.routers.immich-public.tls.certresolver=${IMMICH_CERT_RESOLVER:-letsencrypt}"
+      - "traefik.http.routers.immich-public.service=immich"
+      # Private domain routing (if configured)
+      - "traefik.http.routers.immich-private.rule=Host(`${IMMICH_PRIVATE_DOMAIN}`)"
+      - "traefik.http.routers.immich-private.entrypoints=web,websecure"
+      - "traefik.http.routers.immich-private.tls=true"
+      - "traefik.http.routers.immich-private.tls.certresolver=${IMMICH_CERT_RESOLVER:-letsencrypt}"
+      - "traefik.http.routers.immich-private.service=immich"
+      # Service configuration
+      - "traefik.http.services.immich.loadbalancer.server.port=2283"
+    restart: unless-stopped
+    depends_on:
+      - immich-database
+      - redis
 
   immich-machine-learning:
     image: "ghcr.io/immich-app/immich-machine-learning:${IMMICH_VERSION:-release}"
-    user: "${PUID}:${PGID}:44:109"
-    environment:
-      - TZ=${TZ}
-      - LIBVA_DRIVER_NAME=radeonsi
-    volumes:
-      - "immich_cache_volume:/cache"
-      # Bind AMD GPU device nodes for ROCm/VAAPI as available
-      - type: bind
-        source: /dev/dri
-        target: /dev/dri
-      - type: bind
-        source: /dev/kfd
-        target: /dev/kfd
+    container_name: immich-machine-learning
+    user: "${PUID:-911}:${PGID:-911}"
     privileged: true
+    runtime: amd
+    security_opt:
+      - seccomp:unconfined
+      - label=disable
+      - apparmor=unconfined
+    cap_add:
+      - ALL
+    environment:
+      - TZ=${TZ:-America/New_York}
+      # AMD GPU support for machine learning acceleration
+      - LIBVA_DRIVER_NAME=radeonsi
+      - AMD_VISIBLE_DEVICES=all
+      # ROCm environment variables for AMD GPU ML acceleration
+      - HSA_OVERRIDE_GFX_VERSION=${HSA_OVERRIDE_GFX_VERSION:-}
+      - ROCM_VERSION=${ROCM_VERSION:-}
+    volumes:
+      - immich_cache_volume:/cache
+      # AMD GPU device access for both VAAPI and ROCm
+      - /dev/dri:/dev/dri
+      - /dev/kfd:/dev/kfd
     networks:
       - immich_stack
-    deploy:
-      replicas: 1
-      restart_policy:
-        condition: on-failure
-        delay: 5s
-        max_attempts: 3
-        window: 120s
-      update_config:
-        parallelism: 1
-        delay: 10s
-        failure_action: rollback
-        monitor: 30s
-        order: stop-first
+    restart: unless-stopped
 
   redis:
     image: "redis:7-alpine"
+    container_name: immich-redis
     environment:
-      - TZ=${TZ}
+      - TZ=${TZ:-America/New_York}
     networks:
       - immich_stack
+    volumes:
+      - immich_redis_volume:/data
+    restart: unless-stopped
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 30s
       timeout: 10s
       retries: 3
-    deploy:
-      replicas: 1
-      restart_policy:
-        condition: on-failure
-        delay: 5s
-        max_attempts: 3
-        window: 120s
-      update_config:
-        parallelism: 1
-        delay: 10s
-        failure_action: rollback
-        monitor: 30s
-        order: stop-first
+      start_period: 30s
 
-  database:
+  immich-database:
     image: "tensorchord/pgvecto-rs:pg14-v0.2.0"
+    container_name: immich-database
     environment:
-      - TZ=${TZ}
+      - TZ=${TZ:-America/New_York}
       - POSTGRES_PASSWORD=${IMMICH_DB_PASSWORD}
-      - POSTGRES_USER=${IMMICH_DB_USERNAME}
-      - POSTGRES_DB=${IMMICH_DB_DATABASE_NAME}
+      - POSTGRES_USER=${IMMICH_DB_USERNAME:-immich}
+      - POSTGRES_DB=${IMMICH_DB_DATABASE_NAME:-immich}
       - POSTGRES_INITDB_ARGS=--data-checksums
     networks:
       - immich_stack
     volumes:
-      - "immich_db_volume:/var/lib/postgresql/data"
+      - immich_db_volume:/var/lib/postgresql/data
+    restart: unless-stopped
     healthcheck:
       test: >-
-        pg_isready --dbname="$${POSTGRES_DB}" --username="$${POSTGRES_USER}" || exit 1; Chksum="$$(psql --dbname="$${POSTGRES_DB}" --username="$${POSTGRES_USER}" --tuples-only --no-align --command='SELECT COALESCE(SUM(checksum_failures), 0) FROM pg_stat_database')"; echo "checksum failure count is $$Chksum"; [ "$$Chksum" = '0' ] || exit 1
+        pg_isready --dbname="${POSTGRES_DB}" --username="${POSTGRES_USER}" || exit 1; Chksum="$(psql --dbname="${POSTGRES_DB}" --username="${POSTGRES_USER}" --tuples-only --no-align --command='SELECT COALESCE(SUM(checksum_failures), 0) FROM pg_stat_database')"; echo "checksum failure count is $Chksum"; [ "$Chksum" = '0' ] || exit 1
       interval: 5m
+      timeout: 30s
+      retries: 3
       start_period: 5m
     command: >-
-      postgres -c shared_preload_libraries=vectors.so -c 'search_path="$$user", public, vectors' -c logging_collector=on -c max_wal_size=2GB -c shared_buffers=512MB -c wal_compression=on
+      postgres -c shared_preload_libraries=vectors.so -c 'search_path="$user", public, vectors' -c logging_collector=on -c max_wal_size=2GB -c shared_buffers=512MB -c wal_compression=on
     logging:
       driver: json-file
       options:
         max-file: '5'
         max-size: 10m
-    deploy:
-      replicas: 1
-      restart_policy:
-        condition: on-failure
-        delay: 5s
-        max_attempts: 3
-        window: 120s
-      update_config:
-        parallelism: 1
-        delay: 10s
-        failure_action: rollback
-        monitor: 30s
-        order: stop-first
 
   cloudflared:
     image: "cloudflare/cloudflared:latest"
+    container_name: immich-cloudflared
     entrypoint: ["cloudflared", "--no-autoupdate"]
     command: ["tunnel", "run"]
-    user: "${PUID}:${PGID}:44:109"
     environment:
       - TUNNEL_TOKEN=${IMMICH_CLOUDFLARE_TUNNEL_TOKEN}
     networks:
       - immich_stack
-    deploy:
-      replicas: ${ENABLE_IMMICH_CLOUDFLARED:-0}
-      restart_policy:
-        condition: on-failure
-        delay: 5s
-        max_attempts: 3
-        window: 120s
-      update_config:
-        parallelism: 1
-        delay: 10s
-        failure_action: rollback
-        monitor: 30s
-        order: stop-first
+    restart: unless-stopped
 
 networks:
-  # Internal stack overlay network for inter-service communication
+  # Internal network for inter-service communication
   immich_stack:
     driver: overlay
-    attachable: false
-    driver_opts:
-      encrypted: "true"
+    name: pics_stack
+    external: true
 
   # External Traefik proxy network for load balancer connectivity
   traefik_public:
     external: true
-    name: "traefik_public"
 
 volumes:
   # Upload volume for photos and videos
   immich_upload_volume:
-    name: "${CONTAINER_NAME_PREFIX}_immich_upload"
-    driver: local
-    driver_opts:
-      type: ${IMMICH_UPLOAD_VOLUME_TYPE:-}
-      o: ${IMMICH_UPLOAD_VOLUME_OPTIONS:-}
-      device: ${IMMICH_UPLOAD_BASE:-}
-  
+    name: "immich_immich_upload"
+    external: true
+
   # Cache volume for machine learning models
   immich_cache_volume:
-    name: "${CONTAINER_NAME_PREFIX}_immich_cache"
-    driver: local
-    driver_opts:
-      type: ${IMMICH_CACHE_VOLUME_TYPE:-}
-      o: ${IMMICH_CACHE_VOLUME_OPTIONS:-}
-      device: ${IMMICH_CACHE_BASE:-}
-  
+    name: "immich_immich_cache"
+    external: true
+    #driver_opts:
+     # type: ${IMMICH_CACHE_VOLUME_TYPE:-none}
+      #o: ${IMMICH_CACHE_VOLUME_OPTIONS:-bind}
+      #device: ${IMMICH_CACHE_BASE:-./immich_data/cache}
+
   # Database volume for PostgreSQL data
   immich_db_volume:
-    name: "${CONTAINER_NAME_PREFIX}_immich_db"
-    driver: local
-    driver_opts:
-      type: ${IMMICH_DB_VOLUME_TYPE:-}
-      o: ${IMMICH_DB_VOLUME_OPTIONS:-}
-      device: ${IMMICH_DB_BASE:-} 
+    name: "immich_immich_db"
+    external: true
+#driver: local
+    #driver_opts:
+     # type: ${IMMICH_DB_VOLUME_TYPE:-none}
+      #o: ${IMMICH_DB_VOLUME_OPTIONS:-bind}
+      #device: ${IMMICH_DB_BASE:-./immich_data/database}
+
+  # Redis volume for cache persistence
+  immich_redis_volume:
+    name: "immich_redis"
+    external: true
+    #driver: local
+    #driver_opts:
+      #type: none
+      #o: bind
+      #device: ${IMMICH_REDIS_BASE:-./immich_data/redis}
